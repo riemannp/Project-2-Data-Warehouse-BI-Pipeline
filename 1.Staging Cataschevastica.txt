@@ -1,0 +1,79 @@
+--STAGING FOR CATASCHEVASTICA
+
+--CREATE DATABASE StagingCataschevastica;
+Use StagingCataschevastica;
+
+--Staging for ProductionTeams
+SELECT EmployeeID,FirstName,LastName,EmployeeRole
+INTO StagingCataschevastica.dbo.ProductionTeams
+FROM Cataschevastica.dbo.ProductionTeams;
+
+SELECT * FROM StagingCataschevastica.dbo.ProductionTeams;
+
+
+--Staging for Customers
+SELECT CustomerID, CONCAT(FirstName,' ',LastName) as CustomerName, CONCAT(Customers.Street,' ',Customers.StreetNumber,' ',Customers.City,' ',Customers.PostalCode) AS CustomerAddress , Customers.Phone AS CustomerPhone,Customers.Email AS CustomerEmail
+INTO StagingCataschevastica.dbo.Customers
+FROM Cataschevastica.dbo.Customers;
+
+SELECT * FROM StagingCataschevastica.dbo.Customers;
+
+
+--Staging for Products
+SELECT ProductID, ProductName, ProductDescription, Category, ConstructionTime,CostPerUnit
+INTO StagingCataschevastica.dbo.Products
+FROM Cataschevastica.dbo.Products; 
+
+SELECT * FROM StagingCataschevastica.dbo.Products;
+
+
+--Staging for logistics partners
+
+SELECT * 
+INTO StagingCataschevastica.dbo.LogisticsPartners
+FROM Cataschevastica.dbo.LogisticsPartners; 
+
+SELECT * FROM StagingCataschevastica.dbo.LogisticsPartners; 
+
+
+--Staging for Sales
+SELECT  o.OrderID, o.OrderDate, o.OrderStatus, o.OrderStatusDate,op.ProductID ,op.Quantity, p.CostPerUnit ,o.CustomerID,o.EmployeeID
+INTO StagingCataschevastica.dbo.Sales
+FROM Cataschevastica.dbo.Orders o
+JOIN Cataschevastica.dbo.OrderProducts op
+ON o.OrderID=op.OrderID 
+JOIN Cataschevastica.dbo.Products p
+ON p.ProductID=op.ProductID
+JOIN Cataschevastica.dbo.OrdersHistory oh
+ON oh.OrderID=oh.OrderID
+JOIN Cataschevastica.dbo.Customers c
+ON o.CustomerID=c.CustomerID
+JOIN Cataschevastica.dbo.ProductionTeams pt
+ON pt.EmployeeID=o.EmployeeID
+GROUP BY o.OrderID, o.OrderDate, o.OrderStatus, o.OrderStatusDate,op.ProductID ,op.Quantity, p.CostPerUnit ,o.CustomerID,o.EmployeeID
+ORDER BY o.OrderID
+
+
+--Staging for Daily Production
+
+SELECT o.OrderID,o.OrderDate, o.OrderStatus ,CAST(GETDATE() AS DATE) AS DateToday ,MAX(p.ConstructionTime) as ConstructionTimeHours,CONVERT(INT, MAX(p.ConstructionTime) / 24) AS ConstructionTimeDays, DATEADD(DAY,CONVERT(INT, MAX(p.ConstructionTime) / 24), o.OrderDate) AS EstimatedReadyForDelivery, DATEADD(DAY,3,DATEADD(DAY,CONVERT(INT, MAX(p.ConstructionTime) / 24), o.OrderDate)) AS EstimatedDelivery ,CASE WHEN DATEADD(DAY,CONVERT(INT, MAX(p.ConstructionTime) / 24), o.OrderDate)=CAST(GETDATE() AS DATE) THEN 'TRUE' ELSE 'FALSE' END AS ReadyForDeliveryToday, o.EmployeeID,d.LogisticsPartnerID
+INTO StagingCataschevastica.dbo.Production
+FROM Cataschevastica.dbo.Orders o
+JOIN Cataschevastica.dbo.OrderProducts op
+ON o.OrderID=op.OrderID 
+JOIN Cataschevastica.dbo.Products p
+ON p.ProductID=op.ProductID
+JOIN Cataschevastica.dbo.OrdersHistory oh
+ON oh.OrderID=oh.OrderID
+JOIN Cataschevastica.dbo.ProductionTeams pt
+ON o.EmployeeID=pt.EmployeeID
+JOIN Cataschevastica.dbo.Deliveries d
+ON d.OrderID=o.OrderID
+JOIN Cataschevastica.dbo.LogisticsPartners lp
+ON lp.LogisticsPartnerID=d.LogisticsPartnerID
+WHERE o.OrderStatus!='COMPLETED' AND o.OrderStatus!='CANCELLED'
+GROUP BY O.OrderID,O.OrderDate,o.OrderStatus,o.EmployeeID,d.LogisticsPartnerID
+--HAVING CAST(GETDATE() AS DATE)=DATEADD(DAY,CONVERT(INT, MAX(p.ConstructionTime) / 24), o.OrderDate)
+ORDER BY o.OrderID
+
+SELECT * FROM StagingCataschevastica.dbo.Production

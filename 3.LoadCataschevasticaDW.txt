@@ -1,0 +1,150 @@
+--Load DimProduct
+
+
+INSERT INTO DimProduct (ProductID, ProductName, ProductDescription, ProductCategory,ConstructionTime,CostPerUnit)
+SELECT 
+	ProductID, 
+	ProductName, 
+	ProductDescription,
+	Category,
+	ConstructionTime,
+	CostPerUnit
+FROM StagingCataschevastica.dbo.Products;
+
+SELECT * FROM DimProduct;
+
+
+--Load DimProductionTeam
+
+INSERT INTO DimProductionTeam(EmployeeID,EmployeeName,EmployeeRole)
+SELECT 
+		EmployeeID,
+		CONCAT(FirstName,' ',LastName),
+		EmployeeRole
+FROM StagingCataschevastica.dbo.ProductionTeams;
+
+SELECT * FROM DimProductionTeam;
+
+
+--Load DimCustomer
+
+INSERT INTO DimCustomer(CustomerID,CustomerName,CustomerAddress,CustomerPhone,CustomerEmail)
+SELECT
+		CustomerID,
+		CustomerName,
+		CustomerAddress,  
+		CustomerPhone,
+		CustomerEmail
+FROM StagingCataschevastica.dbo.Customers
+
+SELECT * FROM DimCustomer;
+
+
+--Load DimLogisticsPartners
+
+INSERT INTO DimLogisticsPartners(LogisticsPartnerID,LogisticsPartnerName,Contact)
+SELECT 
+		LogisticsPartnerID,
+		LogisticsPartnerName,
+		Contact
+FROM StagingCataschevastica.dbo.LogisticsPartners
+
+SELECT * FROM DimLogisticsPartners;
+
+
+
+--ADD CONSTRAINTS
+
+ALTER TABLE FactSales ADD FOREIGN KEY (CustomerKey)
+REFERENCES DimCustomer(CustomerKey);
+
+ALTER TABLE FactSales ADD FOREIGN KEY (ProductionTeamKey)
+REFERENCES DimProductionTeam(ProductionTeamKey);
+
+
+ALTER TABLE FactSales ADD FOREIGN KEY (OrderDateKey)
+REFERENCEs DimDate(DateKey);
+
+ALTER TABLE FactSales ADD FOREIGN KEY (OrderDateKey)
+REFERENCEs DimDate(DateKey);
+
+ALTER TABLE FactSales ADD FOREIGN KEY (ProductKey)
+REFERENCEs DimProduct(ProductKey);
+
+ALTER TABLE FactSales 
+ADD CONSTRAINT PK_FactSales PRIMARY KEY (OrderID,ProductKey,ROW_TIMESTAMP);
+
+
+
+--Load FactSales
+
+INSERT INTO FactSales(CustomerKey,ProductKey,ProductionTeamKey,OrderDateKey,OrderID,OrderDate,OrderStatus,OrderStatusDate,Quantity,CostPerUnit )
+SELECT 
+		CustomerID,
+		ProductID,
+		EmployeeID,
+		CONVERT (char(8), OrderDate, 112) as OrderDateKey,
+		OrderID,
+		OrderDate,
+		OrderStatus,
+		OrderStatusDate,
+		Quantity,
+		CostPerUnit
+FROM StagingCataschevastica.dbo.Sales;
+
+
+SELECT * FROM FactSales;
+
+
+
+--ADD CONSTRAINTS
+
+
+
+
+ALTER TABLE FactProduction ADD FOREIGN KEY (ProductionTeamKey)
+REFERENCES DimProductionTeam(ProductionTeamKey);
+
+
+ALTER TABLE FactProduction ADD FOREIGN KEY (OrderDateKey)
+REFERENCEs DimDate(DateKey);
+
+ALTER TABLE FactProduction ADD FOREIGN KEY (LogisticsPartnerKey)
+REFERENCEs DimLogisticsPartners(LogisticsPartnerKey);
+
+
+ALTER TABLE FactProduction 
+ADD CONSTRAINT PK_FactProduction PRIMARY KEY (OrderID,ROW_TIMESTAMP);
+
+
+
+
+--Load FactProduction
+
+INSERT INTO FactProduction(OrderDateKey,ProductionTeamKey,LogisticsPartnerKey,OrderID,OrderDate,OrderStatus,DateToday,ConstructionTimeHours,ConstructionTimeDays,EstimatedReadyForDelivery,EstimatedDelivery,ReadyForDeliveryToday)
+SELECT
+		CONVERT (char(8), OrderDate, 112) as OrderDateKey,
+		EmployeeID,
+		LogisticsPartnerID,
+		OrderID,
+		OrderDate,
+		OrderStatus,
+		DateToday,
+		ConstructionTimeHours,
+		ConstructionTimeDays,
+		EstimatedReadyForDelivery,
+		EstimatedDelivery,
+		ReadyForDeliveryToday
+FROM StagingCataschevastica.dbo.Production
+
+
+
+--DROP THE STAGING TABLES AFTER LOADING THE DATA TO THE DWH
+
+--DROP TABLE StagingCataschevastica.dbo.Production;
+--DROP TABLE Cataschevastica.dbo.ProductionTeams;
+--DROP TABLE StagingCataschevastica.dbo.Customers;
+--DROP TABLE StagingCataschevastica.dbo.Products;
+--DROP TABLE StagingCataschevastica.dbo.LogisticsPartners;
+--DROP TABLE StagingCataschevastica.dbo.Sales
+--DROP TABLE StagingCataschevastica.dbo.Production

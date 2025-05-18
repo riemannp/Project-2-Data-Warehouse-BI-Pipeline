@@ -1,0 +1,298 @@
+--CREATE DATABASE CataschevasticaDW;
+USE CataschevasticaDW;
+
+
+
+CREATE TABLE DimProduct (
+    ProductKey BIGINT IDENTITY(1,1) PRIMARY KEY,
+    ProductID BIGINT NOT NULL,
+    ProductName VARCHAR(255) NOT NULL,
+    ProductDescription VARCHAR(255),
+    ProductCategory VARCHAR(255),
+    CostPerUnit DECIMAL(10, 2) NOT NULL,
+	ConstructionTime BIGINT NOT NULL,
+    RowStartDate DATETIME DEFAULT SYSDATETIME() NOT NULL,
+    RowEndDate DATETIME DEFAULT '9999-12-31 00:00:00' ,
+    RowIsCurrent BIT DEFAULT 1 NOT NULL
+);
+
+
+CREATE TABLE DimProductionTeam (
+    ProductionTeamKey BIGINT IDENTITY(1,1) PRIMARY KEY,
+    EmployeeID BIGINT NOT NULL,
+    EmployeeName VARCHAR(255) NOT NULL,
+    EmployeeRole VARCHAR(255),
+    RowStartDate DATETIME DEFAULT SYSDATETIME() NOT NULL,
+    RowEndDate DATETIME DEFAULT '9999-12-31 00:00:00' ,
+    RowIsCurrent  BIT DEFAULT 1 NOT NULL
+
+);
+
+
+CREATE TABLE DimCustomer (
+    CustomerKey BIGINT IDENTITY(1,1) PRIMARY KEY,
+    CustomerID BIGINT NOT NULL,
+    CustomerName VARCHAR(255) NOT NULL,
+    CustomerAddress VARCHAR(255),
+    CustomerPhone VARCHAR(50),
+    CustomerEmail VARCHAR(255),
+    RowStartDate DATETIME DEFAULT SYSDATETIME() NOT NULL,
+    RowEndDate DATETIME DEFAULT '9999-12-31 00:00:00' ,
+    RowIsCurrent BIT DEFAULT 1 NOT NULL
+);
+
+
+CREATE TABLE DimLogisticsPartners (
+	LogisticsPartnerKey BIGINT IDENTITY(1,1) PRIMARY KEY,
+    LogisticsPartnerID BIGINT ,
+	LogisticsPartnerName VARCHAR(255),
+	Contact BIGINT NOT NULL,
+	RowStartDate DATETIME DEFAULT SYSDATETIME() NOT NULL,
+    RowEndDate DATETIME DEFAULT '9999-12-31 00:00:00' ,
+    RowIsCurrent  BIT DEFAULT 1 NOT NULL
+);
+
+
+CREATE TABLE FactSales (
+    CustomerKey BIGINT NOT NULL,
+	ProductKey BIGINT NOT NULL,
+    ProductionTeamKey BIGINT NOT NULL,
+    OrderDateKey INT NOT NULL,
+    OrderID BIGINT NOT NULL,
+	OrderDate DATE NOT NULL,
+	OrderStatus VARCHAR(255),
+	OrderStatusDate DATE NOT NULL,
+	Quantity BIGINT NOT NULL,
+    CostPerUnit DECIMAL(10, 2) NOT NULL,
+	ROW_TIMESTAMP DATETIME DEFAULT SYSDATETIME() NOT NULL
+);
+
+
+CREATE TABLE FactProduction (
+    OrderDateKey INT NOT NULL,
+	ProductionTeamKey BIGINT NOT NULL,
+	LogisticsPartnerKey BIGINT NOT NULL,
+	OrderID INT NOT NULL,
+	OrderDate DATE NOT NULL,
+	OrderStatus VARCHAR(255),
+	DateToday DATE NOT NULL,
+	ConstructionTimeHours INT NOT NULL,
+	ConstructionTimeDays INT NOT NULL,
+	EstimatedReadyForDelivery DATE NOT NULL,
+	EstimatedDelivery DATE NOT NULL,
+	ReadyForDeliveryToday BIT NOT NULL,
+	ROW_TIMESTAMP DATETIME DEFAULT SYSDATETIME() NOT NULL
+);
+
+
+--DimDate
+
+
+DECLARE @StartDate DATETIME = '2015-01-01'
+DECLARE @EndDate DATETIME = '2027-12-31'
+
+DROP TABLE IF EXISTS [dbo].[DimDate]
+
+CREATE TABLE [dbo].[DimDate]
+    ([DateKey] INT PRIMARY KEY,
+        [Date] DATETIME,
+        [FullDateGreek] CHAR(10),
+        [DayOfMonth] NVARCHAR(2),
+        [DaySuffix] NVARCHAR(4),
+        [DayNameGreek] NVARCHAR(20),
+        [DayOfWeek] CHAR(1),
+        [DayOfWeekInMonth] NVARCHAR(2),
+        [DayOfWeekInYear] NVARCHAR(2),
+        [DayOfQuarter] NVARCHAR(3),
+        [DayOfYear] NVARCHAR(3),
+        [WeekOfMonth] NVARCHAR(1),
+        [WeekOfQuarter] NVARCHAR(2),
+        [WeekOfYear] NVARCHAR(2),
+        [Month] NVARCHAR(2),
+        [MonthNameGreek] NVARCHAR(20),
+        [MonthOfQuarter] NVARCHAR(2),
+        [Quarter] CHAR(1),
+        [QuarterNameGreek] NVARCHAR(20),
+        [Year] CHAR(4),
+        [YearName] NVARCHAR(10),  -- Increase length to accommodate Greek text
+        [MonthYear] CHAR(10),
+        [MMYYYY] CHAR(6),
+        [FirstDayOfMonth] DATE,
+        [LastDayOfMonth] DATE,
+        [FirstDayOfQuarter] DATE,
+        [LastDayOfQuarter] DATE,
+        [FirstDayOfYear] DATE,
+        [LastDayOfYear] DATE,
+        [IsHolidayGreece] BIT,
+        [IsWeekday] BIT,
+        [HolidayGreece] NVARCHAR(50)
+    )
+;
+
+DECLARE
+    @DayOfWeekInMonth INT,
+    @DayOfWeekInYear INT,
+    @DayOfQuarter INT,
+    @WeekOfMonth INT,
+    @CurrentYear INT,
+    @CurrentMonth INT,
+    @CurrentQuarter INT
+
+DECLARE @DayOfWeek TABLE (DOW INT, MonthCount INT, QuarterCount INT, YearCount INT)
+
+INSERT INTO @DayOfWeek VALUES (1, 0, 0, 0)
+INSERT INTO @DayOfWeek VALUES (2, 0, 0, 0)
+INSERT INTO @DayOfWeek VALUES (3, 0, 0, 0)
+INSERT INTO @DayOfWeek VALUES (4, 0, 0, 0)
+INSERT INTO @DayOfWeek VALUES (5, 0, 0, 0)
+INSERT INTO @DayOfWeek VALUES (6, 0, 0, 0)
+INSERT INTO @DayOfWeek VALUES (7, 0, 0, 0)
+
+DECLARE @CurrentDate AS DATETIME = @StartDate
+SET @CurrentMonth = DATEPART(MM, @CurrentDate)
+SET @CurrentYear = DATEPART(YY, @CurrentDate)
+SET @CurrentQuarter = DATEPART(QQ, @CurrentDate)
+
+WHILE @CurrentDate <= @EndDate
+BEGIN
+    IF @CurrentMonth != DATEPART(MM, @CurrentDate)
+    BEGIN
+        UPDATE @DayOfWeek
+        SET MonthCount = 0
+        SET @CurrentMonth = DATEPART(MM, @CurrentDate)
+    END
+
+    IF @CurrentQuarter != DATEPART(QQ, @CurrentDate)
+    BEGIN
+        UPDATE @DayOfWeek
+        SET QuarterCount = 0
+        SET @CurrentQuarter = DATEPART(QQ, @CurrentDate)
+    END
+
+    IF @CurrentYear != DATEPART(YY, @CurrentDate)
+    BEGIN
+        UPDATE @DayOfWeek
+        SET YearCount = 0
+        SET @CurrentYear = DATEPART(YY, @CurrentDate)
+    END
+
+    UPDATE @DayOfWeek
+    SET
+        MonthCount = MonthCount + 1,
+        QuarterCount = QuarterCount + 1,
+        YearCount = YearCount + 1
+    WHERE DOW = DATEPART(DW, @CurrentDate)
+
+    SELECT
+        @DayOfWeekInMonth = MonthCount,
+        @DayOfQuarter = QuarterCount,
+        @DayOfWeekInYear = YearCount
+    FROM @DayOfWeek
+    WHERE DOW = DATEPART(DW, @CurrentDate)
+
+    INSERT INTO [dbo].[DimDate]
+    SELECT
+        CONVERT (char(8), @CurrentDate, 112) as DateKey,
+        @CurrentDate AS Date,
+        FORMAT(@CurrentDate, 'yyyy-MM-dd', 'el-GR') AS FullDateGreek, -- Update format to yyyy-MM-dd
+        DATEPART(DD, @CurrentDate) AS DayOfMonth,
+        CASE
+            WHEN DATEPART(DD, @CurrentDate) IN (11,12,13) THEN CAST(DATEPART(DD, @CurrentDate) AS NVARCHAR) + N'η'
+            WHEN RIGHT(DATEPART(DD, @CurrentDate), 1) = 1 THEN CAST(DATEPART(DD, @CurrentDate) AS NVARCHAR) + N'η'
+            WHEN RIGHT(DATEPART(DD, @CurrentDate), 1) = 2 THEN CAST(DATEPART(DD, @CurrentDate) AS NVARCHAR) + N'α'
+            WHEN RIGHT(DATEPART(DD, @CurrentDate), 1) = 3 THEN CAST(DATEPART(DD, @CurrentDate) AS NVARCHAR) + N'η'
+            ELSE CAST(DATEPART(DD, @CurrentDate) AS NVARCHAR) + N'η'
+        END AS DaySuffix,
+        FORMAT(@CurrentDate, 'dddd', 'el-GR') AS DayNameGreek,
+        DATEPART(DW, @CurrentDate) AS DayOfWeek,
+        @DayOfWeekInMonth AS DayOfWeekInMonth,
+        @DayOfWeekInYear AS DayOfWeekInYear,
+        @DayOfQuarter AS DayOfQuarter,
+        DATEPART(DY, @CurrentDate) AS DayOfYear,
+        DATEPART(WW, @CurrentDate) + 1 - DATEPART(WW, CONVERT(NVARCHAR, DATEPART(MM, @CurrentDate)) + '/1/' + CONVERT(NVARCHAR, DATEPART(YY, @CurrentDate))) AS WeekOfMonth,
+        (DATEDIFF(DD, DATEADD(QQ, DATEDIFF(QQ, 0, @CurrentDate), 0), @CurrentDate) / 7) + 1 AS WeekOfQuarter,
+        DATEPART(WW, @CurrentDate) AS WeekOfYear,
+        DATEPART(MM, @CurrentDate) AS Month,
+        FORMAT(@CurrentDate, 'MMMM', 'el-GR') AS MonthNameGreek,
+        CASE
+            WHEN DATEPART(MM, @CurrentDate) IN (1, 4, 7, 10) THEN 1
+            WHEN DATEPART(MM, @CurrentDate) IN (2, 5, 8, 11) THEN 2
+            WHEN DATEPART(MM, @CurrentDate) IN (3, 6, 9, 12) THEN 3
+        END AS MonthOfQuarter,
+        DATEPART(QQ, @CurrentDate) AS Quarter,
+        CASE DATEPART(QQ, @CurrentDate)
+            WHEN 1 THEN N'Πρώτο'
+            WHEN 2 THEN N'Δεύτερο'
+            WHEN 3 THEN N'Τρίτο'
+            WHEN 4 THEN N'Τέταρτο'
+        END AS QuarterNameGreek,
+        DATEPART(YEAR, @CurrentDate) AS Year,
+        N'ΕΤΟΣ ' + CONVERT(NVARCHAR, DATEPART(YEAR, @CurrentDate)) AS YearName,
+        LEFT(FORMAT(@CurrentDate, 'MMMM', 'el-GR'), 3) + '-' + CONVERT(NVARCHAR, DATEPART(YY, @CurrentDate)) AS MonthYear,
+        RIGHT('0' + CONVERT(NVARCHAR, DATEPART(MM, @CurrentDate)), 2) + CONVERT(NVARCHAR, DATEPART(YY, @CurrentDate)) AS MMYYYY,
+        CONVERT(DATETIME, CONVERT(DATE, DATEADD(DD, - (DATEPART(DD, @CurrentDate) - 1), @CurrentDate))) AS FirstDayOfMonth,
+        CONVERT(DATETIME, CONVERT(DATE, DATEADD(DD, - (DATEPART(DD, (DATEADD(MM, 1, @CurrentDate)))), DATEADD(MM, 1, @CurrentDate)))) AS LastDayOfMonth,
+        DATEADD(QQ, DATEDIFF(QQ, 0, @CurrentDate), 0) AS FirstDayOfQuarter,
+        DATEADD(QQ, DATEDIFF(QQ, -1, @CurrentDate), -1) AS LastDayOfQuarter,
+        CONVERT(DATETIME, '01/01/' + CONVERT(NVARCHAR, DATEPART(YY, @CurrentDate)), 103) AS FirstDayOfYear,
+        CONVERT(DATETIME, '31/12/' + CONVERT(NVARCHAR, DATEPART(YY, @CurrentDate)), 103) AS LastDayOfYear,
+        CASE
+            WHEN DATEPART(dw, @CurrentDate) in (1,7) THEN 0
+            ELSE 1
+        END AS IsWeekday,
+        CAST(0 AS BIT) AS IsHolidayGreece,
+        '' AS HolidayGreece
+
+    SET @CurrentDate = DATEADD(DD, 1, @CurrentDate)
+END
+;
+
+-- Adding Greek Holidays
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Πρωτοχρονιά'
+WHERE [dbo].[DimDate].Month=1 and DayOfMonth=1;
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Θεοφάνεια'
+WHERE [dbo].[DimDate].Month=1 and DayOfMonth=6;
+
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Εικοστή Πέμπτη Μαρτίου'
+WHERE [dbo].[DimDate].Month=3 and DayOfMonth=25;
+
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Πρωτομαγιά'
+WHERE [dbo].[DimDate].Month=5 and DayOfMonth=1;
+
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Κοίμηση της Θεοτόκου'
+WHERE [dbo].[DimDate].Month=8 and DayOfMonth=15;
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Ημέρα του Όχι'
+WHERE [dbo].[DimDate].Month=10 and DayOfMonth=28;
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Χριστούγεννα'
+WHERE [dbo].[DimDate].Month=12 and DayOfMonth=25;
+
+UPDATE [dbo].[DimDate]
+SET [IsHolidayGreece] = 1, [HolidayGreece] = N'Δεύτερη ημέρα των Χριστουγέννων'
+WHERE [dbo].[DimDate].Month=12 and DayOfMonth=26;
+
+-- Optionally, you can include other custom Greek holidays following the same pattern
+
+-- Finally, setting up constraints for IsHolidayGreece to default to 0 if not set
+ALTER TABLE [dbo].[DimDate]
+ADD CONSTRAINT DF_DimDate_IsHolidayGreece DEFAULT 0 FOR [IsHolidayGreece];
+
+-- Marking weekends
+UPDATE [dbo].[DimDate]
+SET [IsWeekday] = 0
+WHERE [DayOfWeek] IN (1, 7); -- Assuming Sunday = 1 and Saturday = 7 in your datepart results
+
+-- Check result
+--SELECT  * FROM [dbo].[DimDate] ORDER BY [Date] DESC;
